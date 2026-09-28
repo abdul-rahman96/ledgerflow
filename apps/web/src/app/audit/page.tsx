@@ -3,7 +3,7 @@ import { PageHeader } from "@/components/ledgerflow/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { auditEvents, importBatches } from "@/lib/data";
+import { getAuditEvents, getImportBatches } from "@/lib/live-data";
 import { cn } from "@/lib/utils";
 
 const iconByTone = {
@@ -12,7 +12,11 @@ const iconByTone = {
   warning: TriangleAlert,
 };
 
-export default function AuditPage() {
+export default async function AuditPage() {
+  const [{ data: auditEvents }, { data: importBatches }] = await Promise.all([
+    getAuditEvents(),
+    getImportBatches(),
+  ]);
   return (
     <div className="space-y-6">
       <PageHeader eyebrow="Evidence & recovery" title="Audit timeline" description="Immutable events explain who changed what and when. Reversible batches preserve the original evidence instead of erasing history." />
@@ -37,7 +41,7 @@ export default function AuditPage() {
           <Card className="border-amber-300/15 bg-amber-300/[0.035]">
             <CardHeader><CardTitle className="flex items-center gap-2"><RotateCcw className="size-5 text-amber-300" />Rollback a batch</CardTitle><CardDescription>Creates compensating records and retains the original import evidence.</CardDescription></CardHeader>
             <CardContent className="space-y-3">{importBatches.filter((batch) => batch.status === "Committed").slice(0, 2).map((batch) => (
-              <div key={batch.id} className="rounded-xl border border-white/8 bg-black/10 p-4"><div className="flex items-center justify-between gap-3"><div><p className="text-sm font-medium">{batch.fileName}</p><p className="mt-1 font-mono text-[11px] text-muted-foreground">{batch.id} · {batch.entries} entries</p></div><Button variant="outline" size="sm" className="border-amber-300/20 bg-transparent text-amber-100">Rollback</Button></div></div>
+              <div key={batch.id} className="rounded-xl border border-white/8 bg-black/10 p-4"><div className="flex items-center justify-between gap-3"><div><p className="text-sm font-medium">{batch.fileName}</p><p className="mt-1 font-mono text-[11px] text-muted-foreground">{batch.id} · {batch.entries} entries</p></div><Button variant="outline" size="sm" disabled className="border-amber-300/20 bg-transparent text-amber-100">Operator only</Button></div></div>
             ))}</CardContent>
           </Card>
           <Card className="border-white/8 bg-card/80"><CardContent className="p-5"><p className="flex items-center gap-2 text-sm font-medium"><ShieldCheck className="size-4 text-emerald-300" />Audit guarantees</p><ul className="mt-4 space-y-3 text-xs leading-5 text-muted-foreground"><li>• Append-only event history</li><li>• Actor and UTC timestamp on every mutation</li><li>• Compensating rollback, never destructive deletion</li><li>• JSON metadata for forensic context</li></ul></CardContent></Card>

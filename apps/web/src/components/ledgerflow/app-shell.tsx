@@ -50,7 +50,7 @@ function Brand() {
   );
 }
 
-export function AppShell({ children }: { children: ReactNode }) {
+export function AppShell({ children, runtimeLabel }: { children: ReactNode; runtimeLabel: string }) {
   const pathname = usePathname();
 
   return (
@@ -78,7 +78,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
           <div className="hidden items-center gap-2 text-xs text-muted-foreground lg:flex">
             <span className="size-1.5 rounded-full bg-emerald-300 shadow-[0_0_12px_#6ee7b7]" />
-            Fixture workspace · healthy
+            {runtimeLabel}
           </div>
           <div className="flex items-center gap-3">
             <span className="hidden text-right sm:block"><span className="block text-xs font-medium">Portfolio workspace</span><span className="block text-[11px] text-muted-foreground">USD · UTC</span></span>

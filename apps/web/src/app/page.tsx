@@ -5,10 +5,18 @@ import { StatusBadge } from "@/components/ledgerflow/status-badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { cashFlow, importBatches, reconciliationItems } from "@/lib/data";
+import { cashFlow } from "@/lib/data";
 import { formatCurrency } from "@/lib/format";
+import { getDashboard, getImportBatches, getReconciliations } from "@/lib/live-data";
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const [dashboard, batchesResult, reconciliationsResult] = await Promise.all([
+    getDashboard(),
+    getImportBatches(),
+    getReconciliations(),
+  ]);
+  const importBatches = batchesResult.data;
+  const reconciliationItems = reconciliationsResult.data;
   const maxFlow = Math.max(...cashFlow.map((point) => point.inflow));
 
   return (
@@ -22,10 +30,10 @@ export default function DashboardPage() {
       />
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4" aria-label="Ledger metrics">
-        <MetricCard label="Managed balance" value="$428,670.84" change="12.4%" trend="up" icon={CircleDollarSign} />
-        <MetricCard label="Month inflow" value="$96,480.00" change="8.2%" trend="up" icon={ArrowUpRight} />
-        <MetricCard label="Month outflow" value="$41,209.16" change="3.1%" trend="down" icon={ArrowDownRight} />
-        <MetricCard label="Needs review" value="7 entries" change="2 due today" trend="neutral" icon={Clock3} />
+        <MetricCard label="Net balance" value={formatCurrency(dashboard.net)} change={dashboard.source === "live" ? "Live API" : "Fixture"} trend="up" icon={CircleDollarSign} />
+        <MetricCard label="Total inflow" value={formatCurrency(dashboard.inflow)} change={dashboard.source === "live" ? "Live API" : "Fixture"} trend="up" icon={ArrowUpRight} />
+        <MetricCard label="Total outflow" value={formatCurrency(dashboard.outflow)} change={dashboard.source === "live" ? "Live API" : "Fixture"} trend="down" icon={ArrowDownRight} />
+        <MetricCard label="Needs review" value={`${dashboard.reviewCount} entries`} change="Read-only view" trend="neutral" icon={Clock3} />
       </section>
 
       <section className="grid gap-4 xl:grid-cols-[1.55fr_1fr]">
@@ -41,7 +49,7 @@ export default function DashboardPage() {
             <div className="mb-6 flex items-end gap-7">
               <div>
                 <p className="text-sm text-muted-foreground">Net movement</p>
-                <p className="mt-1 text-3xl font-semibold tracking-tight">+$55,270.84</p>
+                <p className="mt-1 text-3xl font-semibold tracking-tight">{dashboard.net >= 0 ? "+" : ""}{formatCurrency(dashboard.net)}</p>
               </div>
               <p className="mb-1 flex items-center gap-1 text-sm font-medium text-emerald-300">
                 <ArrowUpRight className="size-4" aria-hidden="true" /> 16.8%

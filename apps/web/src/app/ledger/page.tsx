@@ -5,10 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ledgerEntries } from "@/lib/data";
 import { formatCurrency } from "@/lib/format";
+import { getLedgerEntries } from "@/lib/live-data";
 
-export default function LedgerPage() {
+export default async function LedgerPage() {
+  const { data: ledgerEntries, source } = await getLedgerEntries();
   return (
     <div className="space-y-6">
       <PageHeader eyebrow="Source of truth" title="Ledger" description="Normalized entries with stable external references, fixed-precision amounts, and provenance for every row." />
@@ -36,7 +37,7 @@ export default function LedgerPage() {
           </Table>
         </CardContent>
       </Card>
-      <p className="text-xs text-muted-foreground">Showing 6 synthetic entries · Money values are modeled with decimal precision in the API.</p>
+      <p className="text-xs text-muted-foreground">Showing {ledgerEntries.length} synthetic entries from the {source === "live" ? "live read-only API" : "deterministic fixture fallback"} · Money values use decimal precision in the API.</p>
     </div>
   );
 }

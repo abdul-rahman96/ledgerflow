@@ -20,6 +20,7 @@ services:
       DATABASE_URL: postgresql+psycopg://ledgerflow:local_dev_only@db:5432/ledgerflow
       CORS_ORIGINS: http://localhost:3000
       CONNECTOR_MODE: fixture
+      WRITE_API_KEY: local_dev_only_replace_me
     depends_on:
       db:
         condition: service_healthy

@@ -8,6 +8,7 @@ It is a portfolio project, not a fork or modernization of an employer/client sys
 - [v0.1.1 release and video](https://github.com/abdul-rahman96/ledgerflow/releases/tag/v0.1.1)
 - API image: `ghcr.io/abdul-rahman96/ledgerflow-api:0.1.1`
 - [Project defense and system-design guide](docs/DEFENSE_PREPARATION.md)
+- [Deployment security and gatekeeping](docs/DEPLOYMENT_SECURITY.md)
 
 ## Product surface
 
@@ -24,7 +25,7 @@ It is a portfolio project, not a fork or modernization of an employer/client sys
 - Docker Compose for the complete local stack
 - GitHub Actions for lint, type checking, tests, builds, secret scanning, Pages deployment, and GHCR image releases
 
-All application dependencies and infrastructure in this repository are free/open source. GitHub Pages and public-repository Actions/GHCR can run without an external paid service.
+All application dependencies in this repository are free/open source. GitHub Pages and public-repository Actions/GHCR can run without an external paid service. The Vercel deployment path is designed for free-tier hosting and a reviewed free-tier Marketplace PostgreSQL plan.
 
 ## Run with Docker
 
@@ -56,7 +57,7 @@ npm ci
 npm run dev
 ```
 
-The API defaults to local SQLite when DATABASE_URL is absent, while Compose uses PostgreSQL.
+The API defaults to local SQLite when DATABASE_URL is absent, while Compose uses PostgreSQL. Production refuses SQLite, wildcard CORS, or a weak/missing write key.
 
 ## CSV contract
 
@@ -68,7 +69,7 @@ See fixtures/september-settlements.csv and docs/CONNECTORS.md.
 
 ## CI/CD
 
-The CI workflow gates changes on secret scanning, API lint/tests, web lint/type checks/static export, and both container builds. On main, the verified static site is deployed to GitHub Pages. Tagged releases publish the API image to GHCR using only the repository-scoped GITHUB_TOKEN.
+The CI workflow gates changes on secret scanning, API lint/tests, web lint/type checks/static export, and both container builds. On main, the verified static site is deployed to GitHub Pages. Tagged releases publish the API image to GHCR using only the repository-scoped GITHUB_TOKEN. Vercel uses separate web/API projects from this monorepo; preview deployment verification precedes production promotion.
 
 ## Clean-room boundary
 

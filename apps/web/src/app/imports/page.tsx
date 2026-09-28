@@ -18,15 +18,15 @@ export default function ImportsPage() {
         <Card className="border-white/8 bg-card/80">
           <CardHeader><CardTitle>New CSV batch</CardTitle><CardDescription>Required columns: external_id, occurred_at, description, amount, currency, account.</CardDescription></CardHeader>
           <CardContent>
-            <label className="flex min-h-44 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-cyan-300/25 bg-cyan-300/[0.035] px-6 text-center transition-colors hover:bg-cyan-300/[0.06]">
+            <label className="flex min-h-44 flex-col items-center justify-center rounded-xl border border-dashed border-cyan-300/25 bg-cyan-300/[0.035] px-6 text-center">
               <UploadCloud className="mb-4 size-8 text-cyan-300" aria-hidden="true" />
               <span className="text-sm font-medium">Choose a CSV file</span>
-              <span className="mt-1 text-xs text-muted-foreground">Synthetic fixtures only · up to 10 MB</span>
-              <Input type="file" accept=".csv,text/csv" className="sr-only" />
+              <span className="mt-1 text-xs text-muted-foreground">Synthetic fixtures only · 1 MB server limit · operator access required</span>
+              <Input type="file" accept=".csv,text/csv" disabled className="sr-only" />
             </label>
             <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-              <Input aria-label="Idempotency key" defaultValue="september-settlements-2026-09" className="border-white/8 bg-black/10 font-mono text-xs" />
-              <Button className="shrink-0 bg-cyan-300 text-slate-950 hover:bg-cyan-200">Validate fixture</Button>
+              <Input aria-label="Idempotency key" defaultValue="september-settlements-2026-09" disabled className="border-white/8 bg-black/10 font-mono text-xs" />
+              <Button disabled className="shrink-0 bg-cyan-300 text-slate-950 hover:bg-cyan-200">Operator only</Button>
             </div>
           </CardContent>
         </Card>
@@ -44,12 +44,12 @@ export default function ImportsPage() {
 
       <Alert className="border-cyan-300/15 bg-cyan-300/5">
         <ShieldCheck className="size-4 text-cyan-300" />
-        <AlertTitle>Preview is safe to inspect</AlertTitle>
-        <AlertDescription>2 rows are ready, 1 duplicate is ignored, and 1 malformed row is quarantined. Nothing is committed yet.</AlertDescription>
+        <AlertTitle>Public deployment is read-only</AlertTitle>
+        <AlertDescription>This representative preview is safe to inspect. Live preview, commit, and rollback routes require a server-managed operator key that is never shipped to browser code.</AlertDescription>
       </Alert>
 
       <Card className="border-white/8 bg-card/80">
-        <CardHeader className="flex-row items-center justify-between gap-4"><div><CardTitle>Validation preview</CardTitle><CardDescription>Representative output from the local fixture connector.</CardDescription></div><Button className="bg-cyan-300 text-slate-950 hover:bg-cyan-200">Commit 2 rows</Button></CardHeader>
+        <CardHeader className="flex-row items-center justify-between gap-4"><div><CardTitle>Validation preview</CardTitle><CardDescription>Representative output from the local fixture connector.</CardDescription></div><Button disabled className="bg-cyan-300 text-slate-950 hover:bg-cyan-200">Operator only</Button></CardHeader>
         <CardContent className="overflow-x-auto p-0">
           <Table>
             <TableHeader><TableRow><TableHead>Row</TableHead><TableHead>External ID</TableHead><TableHead>Timestamp</TableHead><TableHead>Description</TableHead><TableHead className="text-right">Amount</TableHead><TableHead>Result</TableHead></TableRow></TableHeader>

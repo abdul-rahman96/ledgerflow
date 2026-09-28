@@ -4,15 +4,18 @@ import { StatusBadge } from "@/components/ledgerflow/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { reconciliationItems } from "@/lib/data";
 import { formatCurrency } from "@/lib/format";
+import { getReconciliations } from "@/lib/live-data";
 
-export default function ReconciliationPage() {
+export default async function ReconciliationPage() {
+  const { data: reconciliationItems } = await getReconciliations();
+  const openVariance = reconciliationItems.reduce((sum, item) => sum + Math.abs(item.variance), 0);
+  const openItems = reconciliationItems.filter((item) => item.variance !== 0).length;
   return (
     <div className="space-y-6">
       <PageHeader eyebrow="Exception management" title="Reconciliation queue" description="Compare source evidence against normalized ledger values, prioritize material variance, and preserve every resolution decision." />
       <section className="grid gap-4 md:grid-cols-3">
-        {[{ label: "Auto-matched", value: "92%", detail: "418 of 454 entries", icon: CircleCheck }, { label: "Open variance", value: "$205.42", detail: "Across 3 entries", icon: Scale }, { label: "Review SLA", value: "4h 12m", detail: "Median resolution", icon: ArrowRight }].map((item) => (
+        {[{ label: "Queue coverage", value: `${reconciliationItems.length} items`, detail: "Current reconciliation window", icon: CircleCheck }, { label: "Open variance", value: formatCurrency(openVariance), detail: `Across ${openItems} entries`, icon: Scale }, { label: "Mutation access", value: "Locked", detail: "Operator key required", icon: ArrowRight }].map((item) => (
           <Card key={item.label} className="border-white/8 bg-card/80"><CardContent className="flex items-start justify-between p-5"><div><p className="text-sm text-muted-foreground">{item.label}</p><p className="mt-3 text-2xl font-semibold">{item.value}</p><p className="mt-1 text-xs text-muted-foreground">{item.detail}</p></div><item.icon className="size-5 text-cyan-300" /></CardContent></Card>
         ))}
       </section>

@@ -13,11 +13,14 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
+  const runtimeLabel = process.env.LEDGERFLOW_API_URL
+    ? "Live API · browser writes locked"
+    : "Fixture workspace · keyless";
   return (
     <html lang="en" className={`dark ${GeistSans.variable} ${GeistMono.variable}`}>
       <body>
         <TooltipProvider>
-          <AppShell>{children}</AppShell>
+          <AppShell runtimeLabel={runtimeLabel}>{children}</AppShell>
         </TooltipProvider>
       </body>
     </html>
