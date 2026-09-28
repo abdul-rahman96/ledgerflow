@@ -40,4 +40,4 @@ target-version = "py312"
 select = ["E", "F", "I", "UP", "B", "SIM"]
 
 [tool.vercel]
-entrypoint = "app/main.py"
+entrypoint = "app.main:app"
