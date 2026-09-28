@@ -1,0 +1,81 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+:root {
+  --radius: 0.75rem;
+  --background: oklch(0.14 0.018 248);
+  --foreground: oklch(0.96 0.008 230);
+  --card: oklch(0.19 0.022 246);
+  --card-foreground: oklch(0.96 0.008 230);
+  --popover: oklch(0.18 0.02 246);
+  --popover-foreground: oklch(0.96 0.008 230);
+  --primary: oklch(0.82 0.145 196);
+  --primary-foreground: oklch(0.16 0.025 242);
+  --secondary: oklch(0.25 0.028 244);
+  --secondary-foreground: oklch(0.94 0.008 230);
+  --muted: oklch(0.23 0.022 246);
+  --muted-foreground: oklch(0.69 0.024 236);
+  --accent: oklch(0.27 0.04 224);
+  --accent-foreground: oklch(0.94 0.01 221);
+  --destructive: oklch(0.65 0.22 25);
+  --border: oklch(0.93 0.01 230 / 0.1);
+  --input: oklch(0.93 0.01 230 / 0.13);
+  --ring: oklch(0.82 0.145 196);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply min-h-screen bg-background font-sans text-foreground antialiased;
+    background-image:
+      radial-gradient(circle at 80% 0%, color-mix(in oklab, var(--primary) 8%, transparent), transparent 30rem),
+      linear-gradient(180deg, oklch(0.16 0.021 247), var(--background) 22rem);
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--primary) 35%, transparent);
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}

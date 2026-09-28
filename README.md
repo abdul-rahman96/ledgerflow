@@ -1,0 +1,70 @@
+# LedgerFlow
+
+LedgerFlow is a clean-room financial data operations control plane: import a synthetic CSV, validate and deduplicate its rows, reconcile source evidence against a normalized ledger, and roll back a batch without destroying its audit trail.
+
+It is a portfolio project, not a fork or modernization of an employer/client system. The repository is MIT-licensed and uses synthetic records only.
+
+## Product surface
+
+- **Overview** — cash movement, control health, queue priority, and recent batches.
+- **Ledger** — provenance-aware normalized entries with decimal amounts and UTC timestamps.
+- **Import & validate** — strict CSV preview, row quarantine, and idempotent commit.
+- **Reconciliation** — source-versus-ledger variance ordered by material impact.
+- **Audit & rollback** — append-only events and reversible batch state.
+
+## Stack
+
+- Next.js 16, TypeScript, Tailwind CSS, shadcn/Radix, self-hosted Geist
+- FastAPI, SQLAlchemy 2, PostgreSQL 17
+- Docker Compose for the complete local stack
+- GitHub Actions for lint, type checking, tests, builds, secret scanning, Pages deployment, and GHCR image releases
+
+All application dependencies and infrastructure in this repository are free/open source. GitHub Pages and public-repository Actions/GHCR can run without an external paid service.
+
+## Run with Docker
+
+```bash
+docker compose up --build
+```
+
+- UI: http://localhost:3000
+- API docs: http://localhost:8000/docs
+- Health: http://localhost:8000/health
+
+The Compose credentials are explicit local-only placeholders. External connectors are disabled.
+
+## Run without Docker
+
+```bash
+cd apps/api
+python -m venv .venv
+. .venv/bin/activate
+pip install -e '.[dev]'
+uvicorn app.main:app --reload
+```
+
+In another terminal:
+
+```bash
+cd apps/web
+npm ci
+npm run dev
+```
+
+The API defaults to local SQLite when DATABASE_URL is absent, while Compose uses PostgreSQL.
+
+## CSV contract
+
+```text
+external_id,occurred_at,description,amount,currency,account
+```
+
+See fixtures/september-settlements.csv and docs/CONNECTORS.md.
+
+## CI/CD
+
+The CI workflow gates changes on secret scanning, API lint/tests, web lint/type checks/static export, and both container builds. On main, the verified static site is deployed to GitHub Pages. Tagged releases publish the API image to GHCR using only the repository-scoped GITHUB_TOKEN.
+
+## Clean-room boundary
+
+See docs/adr/0001-clean-room-reconstruction.md. No legacy credentials are trusted even if they are believed to be expired; they are excluded rather than tested or reused.

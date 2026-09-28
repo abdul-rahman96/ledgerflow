@@ -1,0 +1,40 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ledgerflow-api"
+version = "0.1.0"
+description = "Clean-room ledger import and reconciliation API"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+dependencies = [
+  "fastapi>=0.118,<1.0",
+  "pydantic-settings>=2.10,<3.0",
+  "python-multipart>=0.0.20,<1.0",
+  "sqlalchemy>=2.0.43,<3.0",
+  "psycopg[binary]>=3.2.10,<4.0",
+  "uvicorn[standard]>=0.37,<1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "httpx>=0.28,<1.0",
+  "pytest>=8.4,<9.0",
+  "ruff>=0.13,<1.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]

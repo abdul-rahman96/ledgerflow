@@ -1,0 +1,4 @@
+external_id,occurred_at,description,amount,currency,account
+SET-10491,2026-09-28T08:31:00Z,Synthetic card settlement,12450.00,USD,Revenue - SaaS
+SET-10492,2026-09-28T08:34:00Z,Synthetic usage settlement,5950.00,USD,Revenue - SaaS
+SET-10493,2026-09-28T09:02:00Z,Synthetic infrastructure cost,-830.20,USD,Operations - Cloud
