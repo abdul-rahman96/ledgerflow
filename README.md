@@ -4,6 +4,11 @@ LedgerFlow is a clean-room financial data operations control plane: import a syn
 
 It is a portfolio project, not a fork or modernization of an employer/client system. The repository is MIT-licensed and uses synthetic records only.
 
+- [Live product walkthrough](https://abdul-rahman96.github.io/ledgerflow/)
+- [v0.1.1 release and video](https://github.com/abdul-rahman96/ledgerflow/releases/tag/v0.1.1)
+- API image: `ghcr.io/abdul-rahman96/ledgerflow-api:0.1.1`
+- [Project defense and system-design guide](docs/DEFENSE_PREPARATION.md)
+
 ## Product surface
 
 - **Overview** — cash movement, control health, queue priority, and recent batches.
