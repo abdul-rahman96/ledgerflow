@@ -2,6 +2,11 @@
 
 LedgerFlow uses a split public/read and private/write model. The portfolio UI and synthetic read endpoints are public so reviewers can inspect the system. Preview, import, and rollback are operator operations and require a high-entropy secret that is stored only in the API host.
 
+Current production endpoints:
+
+- Web: https://ledgerflow-web-steel.vercel.app/
+- API health: https://ledgerflow-api-nine.vercel.app/health
+
 ## Trust boundaries
 
 ```mermaid
@@ -58,6 +63,12 @@ After the API project exists:
 5. The account owner publishes the firewall configuration only after review.
 
 Do not begin with a broad deny rule. Attack Mode is an incident control, not a permanent substitute for endpoint authorization.
+
+The two rules are currently staged in log-only mode and are not published. The account owner must inspect the Vercel firewall diff and publish them explicitly. They do not block traffic until publication, and log mode should be observed before any enforcement action is considered.
+
+## Optional Cloudflare layer
+
+Wrangler is installed locally, but no Cloudflare account is authenticated and no Cloudflare-managed custom hostname has been selected. The current `vercel.app` deployment should not be proxied through an improvised second routing layer. If a custom portfolio domain is added later, Cloudflare Access can gate an operator surface and Cloudflare WAF/rate controls can protect that hostname while Vercel remains the origin. Store Cloudflare credentials outside the repository and grant only the minimum zone/account permissions needed.
 
 ## Verification
 

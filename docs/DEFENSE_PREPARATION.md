@@ -2,7 +2,9 @@
 
 ## Evidence links
 
-- Live UI: https://abdul-rahman96.github.io/ledgerflow/
+- Live full-stack UI: https://ledgerflow-web-steel.vercel.app/
+- Live API health: https://ledgerflow-api-nine.vercel.app/health
+- Static fallback UI: https://abdul-rahman96.github.io/ledgerflow/
 - Source: https://github.com/abdul-rahman96/ledgerflow
 - Release: https://github.com/abdul-rahman96/ledgerflow/releases/tag/v0.1.1
 - CI/CD: https://github.com/abdul-rahman96/ledgerflow/actions
@@ -11,7 +13,7 @@
 
 ## 30-second answer
 
-LedgerFlow is a clean-room financial-data operations control plane. It accepts a strict CSV contract, quarantines invalid or duplicate rows, commits valid records idempotently, exposes reconciliation variances, and rolls a batch back through compensating state changes while preserving its audit history. I built a Next.js and TypeScript interface, a FastAPI and SQLAlchemy API, PostgreSQL persistence, Docker Compose, and GitHub Actions that test, scan, build, deploy the static UI to Pages, and publish an attested API image to GHCR. Everything is synthetic, keyless, open source, and separated from employer or client code.
+LedgerFlow is a clean-room financial-data operations control plane. It accepts a strict CSV contract, quarantines invalid or duplicate rows, commits valid records idempotently, exposes reconciliation variances, and rolls a batch back through compensating state changes while preserving its audit history. I built a Next.js and TypeScript interface, a FastAPI and SQLAlchemy API, PostgreSQL persistence, Docker Compose, and GitHub Actions that test, scan, build, deploy the static fallback to Pages, and publish an attested API image to GHCR. The live Vercel UI server-renders read models from the deployed API and managed PostgreSQL database, while mutations are locked behind a server-only operator key. Everything is synthetic, open source, and separated from employer or client code.
 
 ## Two-minute explanation
 
@@ -19,7 +21,7 @@ The project addresses a common operational problem: transaction data often arriv
 
 LedgerFlow treats an import as a first-class batch. A CSV is decoded and validated against a required schema. Valid rows become normalized ledger entries; invalid rows are quarantined with row-level reasons. An idempotency key uniquely identifies the import request, so retrying the same request returns the existing batch instead of writing duplicates. Each commit or rollback writes an append-only audit event. Rollback changes the batch and its entries to `rolled_back` rather than deleting them, preserving provenance.
 
-The portfolio UI is a static, publicly hosted product demonstration populated with synthetic fixture data. The backend is fully runnable with SQLite for a quick keyless test or PostgreSQL through Docker Compose, and is published as an OCI image. The public UI is intentionally not wired to a permanently hosted database/API because the goal was a free, safe portfolio artifact with no live secrets or paid infrastructure. The UI and API demonstrate the product and system-design layers independently; connecting them is the next productionization step.
+The primary portfolio deployment is a public, read-only Vercel application. Next.js fetches dashboard, ledger, import, reconciliation, and audit data from the live FastAPI service on the server, so database credentials and the operator key never reach the browser. FastAPI persists synthetic data in managed PostgreSQL. Preview, import, and rollback remain real API capabilities, but unauthenticated requests receive HTTP 401 and the public UI does not render mutation controls. GitHub Pages remains a deterministic static fallback, and Docker Compose remains the reproducible local full-stack path.
 
 ## Scope and clean-room boundary
 
@@ -27,9 +29,11 @@ LedgerFlow is an original portfolio implementation, not a copy, fork, or moderni
 
 The repository is safe to keep public because:
 
-- no external keys are required;
+- no external connector keys are required;
 - fixture and CSV connectors are deterministic;
 - Compose credentials are explicit local-only placeholders;
+- production secrets live only in Vercel and managed database settings;
+- the public browser receives no mutation or database credential;
 - Gitleaks scans the full Git history in CI;
 - releases use the repository-scoped `GITHUB_TOKEN`, not a copied personal token;
 - the publication audit found no secret patterns or unrelated company/project identifiers.
@@ -46,27 +50,32 @@ The repository is safe to keep public because:
 
 ```mermaid
 flowchart LR
-    User[Portfolio user] --> UI[Next.js static UI]
-    Operator[API client / operator] --> API[FastAPI service]
+    User[Portfolio user] --> Edge[Vercel edge]
+    Edge --> UI[Next.js runtime]
+    UI -->|server-side GET| API[FastAPI service]
+    Operator[Authorized operator] -->|write key + POST| API
     CSV[Synthetic CSV or fixture] --> API
     API --> Validate[Schema validation and quarantine]
     Validate --> Import[Idempotent import service]
-    Import --> DB[(PostgreSQL in Compose\nSQLite in keyless tests)]
+    Import --> DB[(Managed PostgreSQL)]
     API --> Reconcile[Reconciliation queries]
     API --> Audit[Audit and rollback service]
     Reconcile --> DB
     Audit --> DB
     GH[GitHub Actions] --> Pages[GitHub Pages]
     GH --> Registry[GHCR API image]
-    Pages --> UI
+    Tests[Local tests] --> SQLite[(SQLite test database)]
+    Compose[Docker Compose] --> LocalPG[(PostgreSQL 17)]
 ```
 
 ### Deployment topology
 
-- GitHub Pages hosts the exported Next.js interface under the `/ledgerflow` base path.
-- The FastAPI service is packaged and published to GHCR, and runs locally with Docker Compose for the complete UI/API/PostgreSQL flow.
-- PostgreSQL is the containerized runtime database; SQLite is the zero-setup fallback for automated and local API tests.
-- CI is the release gate. Pages deployment waits for secret scanning, API quality, web quality, and both container builds.
+- Vercel hosts two isolated projects from one monorepo: the Next.js web runtime and the FastAPI service.
+- The web runtime calls the API only from the server. Public visitors can inspect live synthetic read models but cannot invoke write operations through the UI.
+- The API uses a free-tier managed PostgreSQL database. It fails production startup if storage is SQLite, CORS is wildcarded, or the write key is weak or absent.
+- Preview deployments use Vercel Authentication. Production benefits from Vercel system DDoS mitigations and restrictive response headers.
+- GitHub Pages hosts the exported Next.js interface under the `/ledgerflow` base path as a fixture-backed fallback.
+- CI is the release gate. Pages deployment waits for secret scanning, API quality, web quality, and both container builds; tagged releases publish the API image to GHCR.
 
 ## Low-level design
 
@@ -149,9 +158,9 @@ sequenceDiagram
 
 ### Next.js 16 and TypeScript
 
-Next.js provides file-based routing, consistent layouts, metadata, and a production build pipeline. Static export makes the public UI hostable on GitHub Pages for free and removes runtime infrastructure and secrets from the demo. TypeScript catches UI data-shape and component errors before deployment.
+Next.js provides file-based routing, consistent layouts, metadata, and a production build pipeline. The runtime build lets the live UI fetch API data on the server without exposing infrastructure secrets. A separate static export keeps the project hostable on GitHub Pages as a deterministic fallback. TypeScript catches UI data-shape and component errors before deployment.
 
-**Tradeoff:** the hosted UI uses synthetic fixtures and does not execute live mutations. A production deployment would use a runtime host, configure the API base URL, and add authentication.
+**Tradeoff:** the public experience is intentionally read-only. Operator mutations require a separate authenticated client and are not exposed in the portfolio browser.
 
 ### Tailwind CSS, shadcn patterns, and Radix primitives
 
@@ -159,7 +168,7 @@ These provide a small, composable design system, accessible primitives, and pred
 
 ### FastAPI and Pydantic
 
-FastAPI makes request validation, typed dependency injection, file uploads, and OpenAPI documentation concise. Pydantic settings support environment-driven configuration while allowing a keyless local default.
+FastAPI makes request validation, typed dependency injection, file uploads, and OpenAPI documentation concise. Pydantic settings support environment-driven configuration, a keyless local default, and fail-closed production validation. Production disables the documentation and OpenAPI routes to reduce unnecessary public surface area.
 
 ### SQLAlchemy 2
 
@@ -167,7 +176,7 @@ SQLAlchemy keeps persistence explicit and portable across SQLite tests and Postg
 
 ### PostgreSQL 17
 
-PostgreSQL is an appropriate production-oriented relational store for transactional financial operations, unique idempotency constraints, exact numerics, foreign keys, and auditable queries.
+PostgreSQL is appropriate for transactional financial operations, unique idempotency constraints, exact numerics, foreign keys, and auditable queries. The live deployment uses managed PostgreSQL; Docker Compose runs PostgreSQL 17 locally.
 
 ### Decimal and `Numeric(20,4)`
 
@@ -193,8 +202,9 @@ Keys are unnecessary for the demonstrated contract:
 - `CsvConnector` tests the same parsing and validation boundary an external connector would feed.
 - API tests run in-process through FastAPI’s test client with a local database.
 - Docker Compose tests the realistic PostgreSQL topology.
-- UI pages use deterministic fixtures, so visual and route checks are stable.
-- Live-browser verification checks all five Pages routes and the console.
+- the static UI uses deterministic fixtures, so visual and route checks are stable;
+- the live UI exercises server-side reads from FastAPI and managed PostgreSQL;
+- browser verification checks the live-data badge, ledger content, read-only notice, locked mutation controls, and console.
 
 The automated tests prove health and seeded data, valid fixture parsing, duplicate quarantine, import idempotency, and reversible rollback. CI additionally proves Ruff linting, pytest, ESLint, TypeScript, static export, secret scanning, and both Docker builds.
 
@@ -203,7 +213,15 @@ For a future real connector, use a port/adapter interface and contract tests wit
 ## Security and failure handling
 
 - External connectors are disabled by default.
+- Preview, import, and rollback require `X-LedgerFlow-Write-Key`, compared in constant time.
+- The write key and database URL are server-only Vercel environment variables.
+- The API assigns the audit actor server-side instead of trusting caller input.
 - CORS origins are explicit and credentials are disabled.
+- CSV uploads are limited to one MiB and require an accepted content type and `.csv` filename.
+- Production refuses weak/missing write keys, wildcard CORS, and SQLite.
+- Production API docs and OpenAPI are disabled.
+- Restrictive CSP, HSTS, framing, MIME-sniffing, permissions, and referrer headers are set.
+- Vercel Authentication protects preview deployments, and platform DDoS mitigations are active.
 - Invalid file contracts return HTTP 422.
 - Unknown rollback batches return HTTP 404.
 - Duplicate requests converge on one uniquely keyed batch.
@@ -229,9 +247,10 @@ The current synchronous import is intentionally small. At higher volume:
 
 ## Honest limitations
 
-- The public Pages UI is a static product demonstration and is not wired to a hosted API.
-- The API is published as a container but is not running as a public service.
-- Authentication and multi-tenancy are out of scope.
+- The public live UI is read-only; operator write tooling is intentionally separate.
+- Mutation authorization is a single operator key, not end-user identity, roles, or multi-tenancy.
+- Two Vercel firewall rules are staged in log-only mode for observation and still require account-owner review and publication.
+- A custom Cloudflare domain, Access policy, and Cloudflare WAF are not configured; Wrangler is installed locally but not authenticated.
 - Reconciliation data is seeded; there is no configurable matching-rule engine yet.
 - Row rejection details are returned during preview but are not persisted as their own table.
 - Schema creation uses `create_all`; a production system needs versioned migrations.
@@ -273,7 +292,7 @@ The core challenge was designing safety properties across boundaries: determinis
 
 ### What would you build next?
 
-First, wire the UI to a deployed authenticated API using environment-specific URLs. Then add migrations, persisted rejection records, request-hash idempotency, a queue-backed import worker, configurable matching rules, pagination, and observability.
+First, add end-user identity and role-based authorization if interactive writes are exposed. Then add migrations, persisted rejection records, request-hash idempotency, a queue-backed import worker, configurable matching rules, pagination, and observability.
 
 ## Three-minute demo talk track
 
@@ -289,11 +308,11 @@ First, wire the UI to a deployed authenticated API using environment-specific UR
 
 **2:10–2:35 — Audit and rollback.** “Rollback is non-destructive. It marks the batch and its entries as rolled back and appends an audit event with the actor and affected count. Repeating rollback is harmless.”
 
-**2:35–3:00 — Engineering and delivery.** “The stack is Next.js and TypeScript, FastAPI and SQLAlchemy, PostgreSQL, and Docker Compose. GitHub Actions scans secrets, runs API and web checks, builds both containers, gates the Pages deployment, and publishes an API image with an SBOM and provenance. The public UI is static and the backend is packaged, so the project stays free and keyless while remaining fully reproducible.”
+**2:35–3:00 — Engineering and delivery.** “The stack is Next.js and TypeScript, FastAPI and SQLAlchemy, PostgreSQL, and Docker Compose. GitHub Actions scans secrets, runs API and web checks, builds both containers, gates the Pages fallback, and publishes an API image with an SBOM and provenance. The primary Vercel UI reads the live API and managed database server-side, while public mutations remain locked.”
 
 ## Final claim checklist
 
-- Say **“static public UI plus runnable/published backend”**, not “fully hosted SaaS.”
+- Say **“live read-only UI backed by FastAPI and managed PostgreSQL, plus a static fallback”**, not “fully authenticated SaaS.”
 - Say **“idempotent by client key and database uniqueness”**, while acknowledging concurrent-conflict hardening as future work.
 - Say **“append-only audit events in the service behavior”**, not “tamper-proof compliance ledger.”
 - Say **“reconciliation model and variance query”**, not “complete rules engine.”
