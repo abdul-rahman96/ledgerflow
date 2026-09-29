@@ -3,6 +3,7 @@
 ## Evidence links
 
 - Live full-stack UI: https://ledgerflow-web-steel.vercel.app/
+- Protected operator workspace: https://ledgerflow-operator.vercel.app/ (Vercel account access required)
 - Live API health: https://ledgerflow-api-nine.vercel.app/health
 - Static fallback UI: https://abdul-rahman96.github.io/ledgerflow/
 - Source: https://github.com/abdul-rahman96/ledgerflow
@@ -13,7 +14,7 @@
 
 ## 30-second answer
 
-LedgerFlow is a clean-room financial-data operations control plane. It accepts a strict CSV contract, quarantines invalid or duplicate rows, commits valid records idempotently, exposes reconciliation variances, and rolls a batch back through compensating state changes while preserving its audit history. I built a Next.js and TypeScript interface, a FastAPI and SQLAlchemy API, PostgreSQL persistence, Docker Compose, and GitHub Actions that test, scan, build, deploy the static fallback to Pages, and publish an attested API image to GHCR. The live Vercel UI server-renders read models from the deployed API and managed PostgreSQL database, while mutations are locked behind a server-only operator key. Everything is synthetic, open source, and separated from employer or client code.
+LedgerFlow is a clean-room financial-data operations control plane. It accepts a strict CSV contract, quarantines invalid or duplicate rows, commits valid records idempotently, exposes reconciliation variances, and rolls a batch back through compensating state changes while preserving its audit history. I built a public Next.js and TypeScript portfolio interface, a separate authenticated Next.js operator console, a FastAPI and SQLAlchemy API, PostgreSQL persistence, Docker Compose, and GitHub Actions that test, scan, build, and deploy the static fallback. The operator app is protected by Vercel Authentication and calls the API through same-origin server routes that add a rotated server-only write key. Everything is synthetic, open source, and separated from employer or client code.
 
 ## Two-minute explanation
 
@@ -21,7 +22,7 @@ The project addresses a common operational problem: transaction data often arriv
 
 LedgerFlow treats an import as a first-class batch. A CSV is decoded and validated against a required schema. Valid rows become normalized ledger entries; invalid rows are quarantined with row-level reasons. An idempotency key uniquely identifies the import request, so retrying the same request returns the existing batch instead of writing duplicates. Each commit or rollback writes an append-only audit event. Rollback changes the batch and its entries to `rolled_back` rather than deleting them, preserving provenance.
 
-The primary portfolio deployment is a public, read-only Vercel application. Next.js fetches dashboard, ledger, import, reconciliation, and audit data from the live FastAPI service on the server, so database credentials and the operator key never reach the browser. FastAPI persists synthetic data in managed PostgreSQL. Preview, import, and rollback remain real API capabilities, but unauthenticated requests receive HTTP 401 and the public UI does not render mutation controls. GitHub Pages remains a deterministic static fallback, and Docker Compose remains the reproducible local full-stack path.
+The primary portfolio deployment is a public, read-only Vercel application. A separate `ledgerflow-operator` deployment supplies the real write workflow without expanding the public attack surface. Vercel Authentication gates every operator URL. The authenticated browser sends only same-origin requests; Next.js route handlers validate origin and inputs, then inject the write key server-side when calling FastAPI. FastAPI persists synthetic data in managed PostgreSQL and independently checks the credential and CSV contract. GitHub Pages remains a deterministic static fallback, and Docker Compose remains the reproducible local full-stack path.
 
 ## Scope and clean-room boundary
 
@@ -53,7 +54,10 @@ flowchart LR
     User[Portfolio user] --> Edge[Vercel edge]
     Edge --> UI[Next.js runtime]
     UI -->|server-side GET| API[FastAPI service]
-    Operator[Authorized operator] -->|write key + POST| API
+    Operator[Authorized operator] --> Auth[Vercel Authentication]
+    Auth --> OperatorUI[Next.js operator console]
+    OperatorUI -->|same-origin POST| Proxy[Server-only route handlers]
+    Proxy -->|write key + POST| API
     CSV[Synthetic CSV or fixture] --> API
     API --> Validate[Schema validation and quarantine]
     Validate --> Import[Idempotent import service]
@@ -70,10 +74,11 @@ flowchart LR
 
 ### Deployment topology
 
-- Vercel hosts two isolated projects from one monorepo: the Next.js web runtime and the FastAPI service.
+- Vercel hosts three isolated projects from one monorepo: the public Next.js web runtime, the protected Next.js operator runtime, and the FastAPI service.
 - The web runtime calls the API only from the server. Public visitors can inspect live synthetic read models but cannot invoke write operations through the UI.
+- The operator project uses Vercel Authentication on every deployment. Its browser never sees `WRITE_API_KEY`; same-origin route handlers add it only on the server.
 - The API uses a free-tier managed PostgreSQL database. It fails production startup if storage is SQLite, CORS is wildcarded, or the write key is weak or absent.
-- Preview deployments use Vercel Authentication. Production benefits from Vercel system DDoS mitigations and restrictive response headers.
+- Operator preview and production deployments use Vercel Authentication. All deployments benefit from Vercel system DDoS mitigations and restrictive response headers.
 - GitHub Pages hosts the exported Next.js interface under the `/ledgerflow` base path as a fixture-backed fallback.
 - CI is the release gate. Pages deployment waits for secret scanning, API quality, web quality, and both container builds; tagged releases publish the API image to GHCR.
 
@@ -160,7 +165,11 @@ sequenceDiagram
 
 Next.js provides file-based routing, consistent layouts, metadata, and a production build pipeline. The runtime build lets the live UI fetch API data on the server without exposing infrastructure secrets. A separate static export keeps the project hostable on GitHub Pages as a deterministic fallback. TypeScript catches UI data-shape and component errors before deployment.
 
-**Tradeoff:** the public experience is intentionally read-only. Operator mutations require a separate authenticated client and are not exposed in the portfolio browser.
+**Tradeoff:** a third deployment adds configuration and release surface, but it keeps dynamic mutation code out of the static-exportable public app. The result is a public review surface plus an owner-only operational surface with independent access policy.
+
+### Why a monorepo
+
+The repository is a monorepo because the public web app, protected operator app, and API implement one product contract and should evolve under one review and CI boundary. Each app has its own dependencies, runtime, Vercel project, and environment variables, so deployment isolation is retained. Shared history makes API/UI changes auditable together, while path-specific builds keep the services independently deployable. This is intentionally a small multi-app repository, not a complex microservice platform.
 
 ### Tailwind CSS, shadcn patterns, and Radix primitives
 
@@ -204,9 +213,13 @@ Keys are unnecessary for the demonstrated contract:
 - Docker Compose tests the realistic PostgreSQL topology.
 - the static UI uses deterministic fixtures, so visual and route checks are stable;
 - the live UI exercises server-side reads from FastAPI and managed PostgreSQL;
-- browser verification checks the live-data badge, ledger content, read-only notice, locked mutation controls, and console.
+- browser verification checks both the public read-only experience and the operator form, accessibility tree, error overlay, and fail-closed states;
+- operator unit tests cover same-origin enforcement, CSV type/empty/size validation, and idempotency-key bounds;
+- an authenticated production smoke test previews a synthetic CSV, commits one three-row batch, and immediately rolls it back.
 
-The automated tests prove health and seeded data, valid fixture parsing, duplicate quarantine, import idempotency, and reversible rollback. CI additionally proves Ruff linting, pytest, ESLint, TypeScript, static export, secret scanning, and both Docker builds.
+The automated tests prove health and seeded data, valid fixture parsing, duplicate quarantine, import idempotency, reversible rollback, operator request-origin checks, and browser-side input guardrails. CI additionally proves Ruff linting, pytest, both Next.js lint/type/build paths, operator tests, static export, secret scanning, and both Docker builds.
+
+Production evidence on 2026-09-29: preview accepted three synthetic rows; commit created batch `imp_01e55a310b94`; rollback returned the same batch as `rolled_back` with a timestamp. A cross-origin operator POST returned 403, a direct API mutation without the credential returned 401, and an anonymous operator request redirected to Vercel sign-in.
 
 For a future real connector, use a port/adapter interface and contract tests with recorded synthetic responses. Put live credentials only in a secret manager, run live tests in a protected environment, and never expose them to pull-request builds.
 
@@ -215,13 +228,17 @@ For a future real connector, use a port/adapter interface and contract tests wit
 - External connectors are disabled by default.
 - Preview, import, and rollback require `X-LedgerFlow-Write-Key`, compared in constant time.
 - The write key and database URL are server-only Vercel environment variables.
+- The write key was rotated during operator deployment and configured only on the API and operator projects.
+- Vercel Authentication protects every operator preview and production request.
+- Operator mutations require same-origin requests and repeat the file-size/type and idempotency validation before forwarding.
+- Operator responses use private/no-store caching and no-index headers.
 - The API assigns the audit actor server-side instead of trusting caller input.
 - CORS origins are explicit and credentials are disabled.
 - CSV uploads are limited to one MiB and require an accepted content type and `.csv` filename.
 - Production refuses weak/missing write keys, wildcard CORS, and SQLite.
 - Production API docs and OpenAPI are disabled.
 - Restrictive CSP, HSTS, framing, MIME-sniffing, permissions, and referrer headers are set.
-- Vercel Authentication protects preview deployments, and platform DDoS mitigations are active.
+- Vercel Authentication protects the complete operator deployment, and platform DDoS mitigations are active.
 - Invalid file contracts return HTTP 422.
 - Unknown rollback batches return HTTP 404.
 - Duplicate requests converge on one uniquely keyed batch.
@@ -247,8 +264,8 @@ The current synchronous import is intentionally small. At higher volume:
 
 ## Honest limitations
 
-- The public live UI is read-only; operator write tooling is intentionally separate.
-- Mutation authorization is a single operator key, not end-user identity, roles, or multi-tenancy.
+- The public live UI is read-only; the write workflow exists only in the separately authenticated operator app.
+- Vercel Authentication establishes owner/team access at the edge, while API mutation authorization is still one service credential rather than application-level roles or multi-tenancy.
 - Two Vercel firewall rules are staged in log-only mode for observation and still require account-owner review and publication.
 - A custom Cloudflare domain, Access policy, and Cloudflare WAF are not configured; Wrangler is installed locally but not authenticated.
 - Reconciliation data is seeded; there is no configurable matching-rule engine yet.
@@ -269,6 +286,14 @@ It contains only original code and synthetic records. No external keys are requi
 ### Why not make the repository private?
 
 The goal is verifiable portfolio evidence. A public repository is appropriate after a clean-room and secret audit. A private repository would reduce reviewer access without materially improving safety for this keyless synthetic project.
+
+### How can the deployed app be used if the public page is read-only?
+
+The public URL is intentionally a reviewer-facing read model. The owner signs into the separate operator URL with the Vercel account, selects a synthetic CSV, previews accepted and rejected rows, reviews the idempotency key, commits, and can then perform a two-step compensating rollback. The write key stays in the operator server runtime and is never entered into or returned to the browser.
+
+### Why is the operator a separate app?
+
+The public app must also support a deterministic static export for GitHub Pages. Server route handlers and protected mutations do not belong in that artifact. A separate operator app preserves static portability, narrows the protected surface, isolates credentials, and lets Vercel Authentication cover every operator request without hiding the public portfolio.
 
 ### How does idempotency work?
 
@@ -292,7 +317,7 @@ The core challenge was designing safety properties across boundaries: determinis
 
 ### What would you build next?
 
-First, add end-user identity and role-based authorization if interactive writes are exposed. Then add migrations, persisted rejection records, request-hash idempotency, a queue-backed import worker, configurable matching rules, pagination, and observability.
+First, replace the owner-only operator model with application-level identity and role-based authorization if multiple operators or tenants are introduced. Then add migrations, persisted rejection records, request-hash idempotency, a queue-backed import worker, configurable matching rules, pagination, and observability.
 
 ## Three-minute demo talk track
 
@@ -302,17 +327,17 @@ First, add end-user identity and role-based authorization if interactive writes 
 
 **0:50–1:15 — Ledger.** “The ledger normalizes each entry into a stable schema with provenance, exact decimal money, currency, account, state, and UTC time. Every entry links back to its source batch.”
 
-**1:15–1:45 — Import.** “The import flow first previews a strict CSV. It separates accepted rows from quarantined rows and explains each rejection. Commit requires an idempotency key, so retrying a request returns the same batch instead of duplicating money.”
+**1:15–1:45 — Import.** “I switch to the Vercel-authenticated operator workspace. The browser sends the CSV to a same-origin server route; the secret never enters client code. Preview separates accepted rows from quarantined rows. Commit requires an idempotency key, so retrying returns the same batch instead of duplicating money.”
 
 **1:45–2:10 — Reconciliation.** “Reconciliation compares source and ledger values and orders differences by absolute impact, which helps operators focus on material exceptions. The current MVP seeds this evidence; a future matching engine would generate it from configurable rules.”
 
 **2:10–2:35 — Audit and rollback.** “Rollback is non-destructive. It marks the batch and its entries as rolled back and appends an audit event with the actor and affected count. Repeating rollback is harmless.”
 
-**2:35–3:00 — Engineering and delivery.** “The stack is Next.js and TypeScript, FastAPI and SQLAlchemy, PostgreSQL, and Docker Compose. GitHub Actions scans secrets, runs API and web checks, builds both containers, gates the Pages fallback, and publishes an API image with an SBOM and provenance. The primary Vercel UI reads the live API and managed database server-side, while public mutations remain locked.”
+**2:35–3:00 — Engineering and delivery.** “The monorepo contains independent public web, protected operator, and API apps. GitHub Actions scans secrets, tests all three surfaces, builds both containers, gates the Pages fallback, and publishes an API image with an SBOM and provenance. The public UI stays readable; the operator requires Vercel identity plus a server-only API credential.”
 
 ## Final claim checklist
 
-- Say **“live read-only UI backed by FastAPI and managed PostgreSQL, plus a static fallback”**, not “fully authenticated SaaS.”
+- Say **“public live read-only UI plus a Vercel-authenticated owner operator backed by FastAPI and managed PostgreSQL”**, not “multi-user authenticated SaaS.”
 - Say **“idempotent by client key and database uniqueness”**, while acknowledging concurrent-conflict hardening as future work.
 - Say **“append-only audit events in the service behavior”**, not “tamper-proof compliance ledger.”
 - Say **“reconciliation model and variance query”**, not “complete rules engine.”

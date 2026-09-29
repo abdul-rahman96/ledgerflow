@@ -6,6 +6,7 @@ Current production endpoints:
 
 - Web: https://ledgerflow-web-steel.vercel.app/
 - API health: https://ledgerflow-api-nine.vercel.app/health
+- Operator: https://ledgerflow-operator.vercel.app/ (Vercel Authentication required)
 
 ## Trust boundaries
 
@@ -14,12 +15,17 @@ flowchart LR
     Visitor[Public visitor] --> Edge[Vercel edge and DDoS protection]
     Edge --> Web[Next.js portfolio UI]
     Web -->|server-side GET only| API[FastAPI]
-    Operator[Authorized operator] -->|X-LedgerFlow-Write-Key| API
+    Operator[Authorized operator] --> Auth[Vercel Authentication]
+    Auth --> OperatorUI[Next.js operator]
+    OperatorUI -->|same-origin POST| Proxy[Server-only route handler]
+    Proxy -->|X-LedgerFlow-Write-Key| API
     API --> DB[(Managed PostgreSQL)]
     API -. blocked without key .-> Mutations[Preview / import / rollback]
 ```
 
 - The browser never receives `WRITE_API_KEY` or database credentials.
+- Every production and preview request to the operator project passes Vercel Authentication before reaching Next.js.
+- Operator POST handlers require an exact same-origin `Origin`, revalidate CSV type/size and idempotency input, and fail closed when server configuration is absent.
 - Next.js fetches live read models on the server. GitHub Pages continues to use deterministic fixtures.
 - FastAPI checks mutation keys with constant-time comparison and assigns the audit actor server-side.
 - Production startup fails if the write key is shorter than 32 characters, CORS is wildcarded, or the database is SQLite.
@@ -29,7 +35,7 @@ flowchart LR
 
 ## Required Vercel settings
 
-Create separate Vercel projects rooted at `apps/api` and `apps/web`.
+Create separate Vercel projects rooted at `apps/api`, `apps/web`, and `apps/operator`.
 
 API environment:
 
@@ -48,11 +54,20 @@ Web environment:
 | --- | --- | --- |
 | `LEDGERFLOW_API_URL` | Preview and production | Server-only API origin; do not prefix with `NEXT_PUBLIC_` |
 
+Operator environment:
+
+| Variable | Scope | Purpose |
+| --- | --- | --- |
+| `LEDGERFLOW_API_URL` | Preview and production | Server-only API origin |
+| `WRITE_API_KEY` | Preview and production, sensitive | Same rotated high-entropy value configured on the API |
+
+Set `ssoProtection.deploymentType` to `all` on the operator project. The public web project remains accessible to reviewers and contains no mutation proxy.
+
 Use a Vercel Marketplace PostgreSQL resource with a free plan when available. Review the provider plan before provisioning. The database URL and write key must be marked sensitive and must never be copied into GitHub Actions logs or repository files.
 
 ## Edge controls
 
-Vercel system DDoS mitigations remain enabled. Preview deployments should use Vercel Authentication. The production UI remains public; mutation routes are authenticated in the application.
+Vercel system DDoS mitigations remain enabled. The operator project uses Vercel Authentication for all deployments, including production. The portfolio UI and read API remain public; mutation routes require both the edge identity gate and the API write credential.
 
 After the API project exists:
 
@@ -81,8 +96,11 @@ The release gate must prove:
 - API lint/tests, web lint/type checks, secret scanning, and container builds pass;
 - the preview deployment is checked before production promotion;
 - production GETs succeed while an unauthenticated POST stays blocked;
+- an anonymous operator request redirects to Vercel sign-in;
+- an authenticated synthetic preview succeeds, then commit and rollback converge on `rolled_back`;
+- a cross-origin operator POST returns `403` and a direct keyless API POST returns `401`;
 - Vercel runtime logs show no new error cluster after promotion.
 
 ## Incident response
 
-If abuse is observed, enable Attack Mode for a bounded period, inspect runtime and firewall logs, and rotate `WRITE_API_KEY`. If database credentials may be exposed, rotate them through the provider, update Vercel environment variables, redeploy, and invalidate the old credential. Never pause Vercel system mitigations.
+If abuse is observed, enable Attack Mode for a bounded period, inspect runtime and firewall logs, revoke unexpected Vercel sessions, and rotate `WRITE_API_KEY` in both the API and operator projects before redeploying them. If database credentials may be exposed, rotate them through the provider, update Vercel environment variables, redeploy, and invalidate the old credential. Never pause Vercel system mitigations.
